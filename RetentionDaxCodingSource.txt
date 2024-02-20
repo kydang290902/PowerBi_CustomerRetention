@@ -1,0 +1,59 @@
+1.	Calculated Column
+
+Khoangcach = GENERATESERIES(0,12,1)
+MonthYear = "M"&FORMAT(Sales[InvoiceDate].[Date],"M YYYY")
+
+MonthYearNumber = 
+    	VAR MonthYear = FORMAT(Sales[InvoiceDate].[Date],"YYYYM")
+    	RETURN
+        	IF(LEN(MonthYear) == 5, FORMAT(Sales[InvoiceDate].[Date],"YYYY0M"), MonthYear)
+
+RankMonth = RANKX(ALL(Sales),Sales[MonthYearNumber],,ASC,Dense)
+
+Revenue = [UnitPrice] * [Quantity] 
+
+2.	Measure
+
+%NoCustomer = 
+    VAR RangeMonth = SELECTEDVALUE(MonthRange[KhoangCach])
+    VAR MaxMonth = CALCULATE(MAX(Sales[RankMonth]),ALL(Sales))
+    VAR TotalMonth = 
+        VALUES(Sales[RankMonth])
+    VAR FilterMonth = FILTER(TotalMonth,Sales[RankMonth] <= MaxMonth - RangeMonth)
+    RETURN
+        SUMX(FilterMonth,[CohortCustomers])/SUMX(FilterMonth,CALCULATE([CohortCustomers],ALL(MonthRange[KhoangCach]),MonthRange[KhoangCach] = 0))
+
+
+ChurnRate = 1 - [%NoCustomer]
+
+CohortCustomers = 
+    	VAR CurrentMonth = SELECTEDVALUE(Sales[RankMonth])
+   	VAR RangeMonth = SELECTEDVALUE(MonthRange[KhoangCach])
+    	VAR TotalCustomer = VALUES(Sales[CustomerID])
+    	VAR PastCustomer = 
+        	CALCULATETABLE(VALUES(Sales[CustomerID]),
+        	ALL(Sales[MonthYear],Sales[MonthYearNumber]),
+        	Sales[RankMonth] < CurrentMonth)
+    	VAR NewCustomer = 
+        	EXCEPT(TotalCustomer,PastCustomer)
+    	VAR TotalFutureCustomer = CALCULATETABLE(VALUES(Sales[CustomerID]),
+        	ALL(Sales[MonthYear],Sales[MonthYearNumber]),
+        	CurrentMonth + RangeMonth = Sales[RankMonth])
+    	VAR FutureCustomer = 
+        	INTERSECT(NewCustomer,TotalFutureCustomer)
+    	RETURN
+        	COUNTROWS(FutureCustomer)
+
+
+TotalAmount = SUM(Sales[Revenue])
+
+TotalCustomer = DISTINCTCOUNT(Sales[CustomerID])
+
+
+
+
+
+
+
+
+
